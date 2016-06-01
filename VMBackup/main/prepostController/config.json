@@ -1,0 +1,9 @@
+{
+	"timeout" : 30,
+	"plugins" : [
+		{
+			"pluginName" : "oracle_linux",
+			"baseFolder" : "/abc/xyz/"
+		}
+	]
+}
