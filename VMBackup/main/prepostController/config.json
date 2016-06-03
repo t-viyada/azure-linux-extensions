@@ -2,8 +2,8 @@
 	"timeout" : 30,
 	"plugins" : [
 		{
-			"pluginName" : "oracle_linux",
-			"baseFolder" : "/abc/xyz/"
+			"pluginName" : "oracleLinux",
+			"baseFolder" : "/Users/vikasyadav/Desktop/ms_intern/azure-linux-extensions/VMBackup/main/prepostController/tempPlugin/"
 		}
 	]
 }

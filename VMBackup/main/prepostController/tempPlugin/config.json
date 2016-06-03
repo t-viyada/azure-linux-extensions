@@ -2,7 +2,7 @@
 	"pluginName" : "oracleLinux",
 	"timeout" : 10,
 	"continueBackupOnFailure" : true,
-	"preScriptLocaiton" : "",
+	"preScriptLocation" : "",
 	"postScriptLocation" : "",
 	"preScriptParams" : [
 	],

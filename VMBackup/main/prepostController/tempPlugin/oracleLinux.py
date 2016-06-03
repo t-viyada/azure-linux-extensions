@@ -73,8 +73,16 @@ class ScriptPlugin(object):
 			-- preScriptResult is an array and it stores the result at pluginIndex
 
 		"""
+		result = ScriptPluginResult()
+		preScriptResult[pluginIndex] = result
+		paramsStr = []
+		paramsStr.append(str(self.preScriptLocation))
+		for param in self.preScriptParams:
+			paramsStr.append(str(param))
+		call(paramsStr)
 
-
+		preScriptCompleted[pluginIndex] = True
+		preScriptResult[pluginIndex] = result
 
 
 	def post_script(self, params):
