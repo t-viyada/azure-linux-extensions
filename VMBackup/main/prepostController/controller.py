@@ -1,4 +1,5 @@
 import json
+import time
 import sys
 import threading
 
@@ -33,6 +34,7 @@ class ControllerError(object):
 	def __str__(self):
 		return 'Plugin: ', self.pluginName , ' ErrorCode: ' + str(self.errorCode)
 
+
 class ControllerResult(object):
 	def __init__(self):
 		self.errors = []
@@ -52,7 +54,7 @@ class Controller(object):
 	def __init__(self, logger):
 		self.logger = logger
 		self.timeout = 10
-		self.pluginModules = []
+		self.plugins = []
 		self.pluginName = []
 		self.noOfPlugins = 0
 		self.preScriptCompleted = []
@@ -73,7 +75,8 @@ class Controller(object):
 		self.timeout = configData['timeout']
 		for pluginData in configData['plugins']:
 			sys.path.append(pluginData['baseFolder'])
-			self.pluginModules.append(__import__(pluginData['pluginName']))
+			plugin = __import__(pluginData['pluginName'])
+			self.plugins.append(plugin.ScriptPlugin(logger=self.logger))
 			self.noOfPlugins = self.noOfPlugins + 1
 			self.pluginName.append(pluginData['pluginName'])
 			self.preScriptCompleted.append(False)
@@ -84,13 +87,13 @@ class Controller(object):
 	def add_plugin(self, pluginName, baseFolder):
 		"""
 			Adds a new plugin module by updating config.json file
-			values is a dictionary with the structure as shown in config.json file description
+			pluginName and baseFolder are information about the new plugin
 
 		"""
 		configData = None
 		with open('config.json', 'r') as configFile:
 			configData = json.load(configFile)
-		values = {'pluginName' : pluginName, 'baseFolder' : baseFolder}
+		values = {'pluginName': pluginName, 'baseFolder': baseFolder}
 		configData['plugins'].append(values)
 		with open('config.json', 'w+') as configFile:
 			configFile.write(json.dumps(configData))
@@ -102,22 +105,20 @@ class Controller(object):
 
 		"""
 		self.load_modules()
-		preScriptResult = ControllerResult()
 		curr = 0
-		for plugin in self.pluginModules:
-			currPlugin = plugin.ScriptPlugin(logger=self.logger)
-			t1 = threading.Thread(target=currPlugin.pre_script,agrs=(curr,self.preScriptCompleted,self.preScriptResult,))
+		for plugin in self.plugins:
+			t1 = threading.Thread(target=plugin.pre_script,args=(curr,self.preScriptCompleted,self.preScriptResult,))
 			t1.start()
 			curr = curr + 1
 
 		flag = True
-		for i in range(0,15):
+		for i in range(0,self.timeout):
+			time.sleep(60)
 			flag = True
 			for j in range(0,self.noOfPlugins):
 				flag = flag&self.preScriptCompleted[j]
 			if flag:
 				break
-			self.sleep(60)
 
 		result = ControllerResult()
 		continueBackup = True
@@ -128,6 +129,37 @@ class Controller(object):
 				ecode = self.preScriptResult[j].errorCode
 			presult = ControllerError(errorCode=ecode,pluginName=self.pluginName[j])
 			result.errors.append(presult)
+		result.continueBackup = continueBackup
+		return result
+
+	def post_script(self):
+		"""
+			Runs post_script() for all plugins and maintains a timer
+
+		"""
+		curr = 0
+		for plugin in self.plugins:
+			t1 = threading.Thread(target=plugin.post_script,args=(curr,self.postScriptCompleted,self.postScriptResult,))
+			t1.start()
+			curr = curr + 1
+
+		flag = True
+		for i in range(0,self.timeout):
+			time.sleep(60)
+			flag = True
+			for j in range(0,self.noOfPlugins):
+				flag = flag&self.postScriptCompleted[j]
+			if flag:
+				break
+
+		result = ControllerResult()
+		result.continueBackup = True
+		for j in range(0,self.noOfPlugins):
+			ecode = 1
+			if self.postScriptCompleted[j]:
+				ecode = self.postScriptCompleted[j].errorCode
+			presult = ControllerError(errorCode=ecode,pluginName=self.pluginName[j])
+			result.errors.append(presult)
+		return result
 
 
-	def post_script(self, params):

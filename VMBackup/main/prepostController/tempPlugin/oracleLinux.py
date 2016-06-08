@@ -1,5 +1,9 @@
 import json
-from subprocess import call
+import subprocess
+import datetime
+import os
+import time
+import signal
 
 """
 	config.json --------structure---------
@@ -50,6 +54,8 @@ class ScriptPlugin(object):
 		self.postScriptParams = []
 		self.preScriptLocation = None
 		self.postScriptLocation = None
+		self.preScriptTimeoutHandlerLocation = None
+		self.postScriptTimeoutHandlerLocation = None
 		self.get_config()
 
 	def get_config(self):
@@ -67,7 +73,7 @@ class ScriptPlugin(object):
 
 	def pre_script(self, pluginIndex, preScriptCompleted, preScriptResult):
 		"""
-			Generates a system call for the script plugin
+			Generates a system call to run the prescript
 			-- pluginIndex is the index for the current plugin assigned by controller
 			-- preScriptCompleted is a bool array, upon completion of script, true will be assigned at pluginIndex
 			-- preScriptResult is an array and it stores the result at pluginIndex
@@ -75,14 +81,50 @@ class ScriptPlugin(object):
 		"""
 		result = ScriptPluginResult()
 		preScriptResult[pluginIndex] = result
-		paramsStr = []
-		paramsStr.append(str(self.preScriptLocation))
+		paramsStr = [str(self.preScriptLocation)]
 		for param in self.preScriptParams:
 			paramsStr.append(str(param))
-		call(paramsStr)
 
-		preScriptCompleted[pluginIndex] = True
-		preScriptResult[pluginIndex] = result
+		process = subprocess.Popen(paramsStr, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
+		flag = True
+		curr = 0
+		while process.poll() is None:
+			if curr >= self.timeout:
+				flag = False
+				break
+			curr = curr + 1
+			time.sleep(60)
 
-	def post_script(self, params):
+		preScriptCompleted[pluginIndex] = flag
+		if flag:
+			preScriptResult[pluginIndex] = result
+
+	def post_script(self, pluginIndex, postScriptCompleted, postScriptResult):
+		"""
+			Generates a system call to run the postscript
+			-- pluginIndex is the index for the current plugin assigned by controller
+			-- postScriptCompleted is a bool array, upon completion of script, true will be assigned at pluginIndex
+			-- postScriptResult is an array and it stores the result at pluginIndex
+
+		"""
+		result = ScriptPluginResult()
+		postScriptResult[pluginIndex] = result
+		paramsStr = [str(self.postScriptLocation)]
+		for param in self.postScriptParams:
+			paramsStr.append(str(param))
+
+		process = subprocess.Popen(paramsStr, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+		flag = True
+		curr = 0
+		while process.poll() is None:
+			if curr >= self.timeout:
+				flag = False
+				break
+			curr = curr + 1
+			time.sleep(60)
+
+		postScriptCompleted[pluginIndex] = flag
+		if flag:
+			postScriptResult[pluginIndex] = result
