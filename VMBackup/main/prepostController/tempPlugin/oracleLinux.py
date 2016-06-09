@@ -1,9 +1,7 @@
 import json
 import subprocess
-import datetime
 import os
 import time
-import signal
 
 """
 	config.json --------structure---------
@@ -27,8 +25,8 @@ import signal
 
 	errorcode policy
 	errorcode = 0, means success, script runs without error, warnings maybe possible
-	errorcode = 1, means script timed out
-	errorcode = 2, means script encountered some error
+	errorcode = 5, means timeout
+	errorcode = process return code, means bash script encountered some other error, like 127 for script not found
 
 """
 
@@ -79,12 +77,9 @@ class ScriptPlugin(object):
 			-- preScriptResult is an array and it stores the result at pluginIndex
 
 		"""
-		result = ScriptPluginResult()
-		preScriptResult[pluginIndex] = result
 		paramsStr = [str(self.preScriptLocation)]
 		for param in self.preScriptParams:
 			paramsStr.append(str(param))
-
 		process = subprocess.Popen(paramsStr, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 		flag = True
@@ -96,9 +91,15 @@ class ScriptPlugin(object):
 			curr = curr + 1
 			time.sleep(60)
 
-		preScriptCompleted[pluginIndex] = flag
+		result = ScriptPluginResult()
 		if flag:
-			preScriptResult[pluginIndex] = result
+			result.errorCode = process.returncode
+		else:
+			result.errorCode = 5
+			result.continueBackup = self.continueBackupOnFailure
+		preScriptCompleted[pluginIndex] = True
+		preScriptResult[pluginIndex] = result
+
 
 	def post_script(self, pluginIndex, postScriptCompleted, postScriptResult):
 		"""
@@ -125,6 +126,11 @@ class ScriptPlugin(object):
 			curr = curr + 1
 			time.sleep(60)
 
-		postScriptCompleted[pluginIndex] = flag
+		result = ScriptPluginResult()
 		if flag:
-			postScriptResult[pluginIndex] = result
+			result.errorCode = process.returncode
+		else:
+			result.errorCode = 5
+			result.continueBackup = self.continueBackupOnFailure
+		postScriptCompleted[pluginIndex] = True
+		postScriptResult[pluginIndex] = result

@@ -21,8 +21,8 @@ import threading
 
 	errorcode policy
 	errorcode = 0, means success, script runs without error, warnings maybe possible
-	errorcode = 1, means script timed out
-	errorcode = 2, means script encountered some error
+	errorcode = 5, means timeout
+	errorcode = process return code, means bash script encountered some other error, like 127 for script not found
 
 """
 
@@ -123,7 +123,7 @@ class Controller(object):
 		result = ControllerResult()
 		continueBackup = True
 		for j in range(0,self.noOfPlugins):
-			ecode = 1
+			ecode = 5
 			continueBackup = continueBackup&self.postScriptResult[j].continueBackup
 			if self.preScriptCompleted[j]:
 				ecode = self.preScriptResult[j].errorCode
@@ -155,7 +155,7 @@ class Controller(object):
 		result = ControllerResult()
 		result.continueBackup = True
 		for j in range(0,self.noOfPlugins):
-			ecode = 1
+			ecode = 5
 			if self.postScriptCompleted[j]:
 				ecode = self.postScriptCompleted[j].errorCode
 			presult = ControllerError(errorCode=ecode,pluginName=self.pluginName[j])
