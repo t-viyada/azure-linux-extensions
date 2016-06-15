@@ -47,10 +47,10 @@ class ScriptPluginResult(object):
 
 class ScriptPlugin(object):
 	""" description of class """
-	def __init__(self, logger):
+	def __init__(self, logger, name):
 		self.logger = logger
 		self.timeout = 10
-		self.pluginName = None
+		self.pluginName = name
 		self.continueBackupOnFailure = True
 		self.preScriptParams = []
 		self.postScriptParams = []
@@ -58,6 +58,7 @@ class ScriptPlugin(object):
 		self.postScriptLocation = None
 		self.preScriptNoOfRetries = 0
 		self.postScriptNoOfRetries = 0
+		self.configLoaded = False
 		self.get_config()
 
 	def get_config(self):
@@ -65,8 +66,15 @@ class ScriptPlugin(object):
 			Get configuration information from config.json
 
 		"""
-		with open('config.json', 'r') as configFile:
-			configData = json.load(configFile)
+		try:
+			with open('config.json', 'r') as configFile:
+				configData = json.load(configFile)
+		except IOError:
+			self.logger.log('Error in opening '+self.pluginName+' config file.',True,'Error')
+			return
+		except ValueError as err:
+			self.logger.log('Error in decoding '+self.pluginName+' config file. '+str(err),True,'Error')
+			return
 		self.timeout = configData['timeout']
 		self.pluginName = configData['pluginName']
 		self.preScriptParams = configData['preScriptParams']
@@ -74,6 +82,7 @@ class ScriptPlugin(object):
 		self.continueBackupOnFailure = configData['continueBackupOnFailure']
 		self.preScriptNoOfRetries = configData['preScriptNoOfRetries']
 		self.postScriptNoOfRetries = configData['postScriptNoOfRetries']
+		self.configLoaded = True
 
 	def pre_script(self, pluginIndex, preScriptCompleted, preScriptResult):
 		"""
@@ -83,6 +92,15 @@ class ScriptPlugin(object):
 			-- preScriptResult is an array and it stores the result at pluginIndex
 
 		"""
+		result = ScriptPluginResult()
+		result.requiredNoOfRetries = self.preScriptNoOfRetries
+		if not self.configLoaded:
+			result.errorCode = 10
+			preScriptCompleted[pluginIndex] = True
+			preScriptResult[pluginIndex] = result
+			self.logger.log('Cant run prescript for '+self.pluginName+' . Config File error.',True,'Error')
+			return
+
 		paramsStr = [str(self.preScriptLocation)]
 		for param in self.preScriptParams:
 			paramsStr.append(str(param))
@@ -110,9 +128,8 @@ class ScriptPlugin(object):
 			self.logger.log('Prescript for '+self.pluginName+' failed. Retrying...',True,'Info')
 			cnt = cnt + 1
 
-		result = ScriptPluginResult()
+
 		result.noOfRetries = cnt
-		result.requiredNoOfRetries = self.preScriptNoOfRetries
 		if flag:
 			result.errorCode = process.returncode
 			if result.errorCode!=0:
@@ -134,7 +151,14 @@ class ScriptPlugin(object):
 
 		"""
 		result = ScriptPluginResult()
-		postScriptResult[pluginIndex] = result
+		result.requiredNoOfRetries = self.preScriptNoOfRetries
+		if not self.configLoaded:
+			result.errorCode = 10
+			postScriptCompleted[pluginIndex] = True
+			postScriptResult[pluginIndex] = result
+			self.logger.log('Cant run postscript for '+self.pluginName+' . Config File error.',True,'Error')
+			return
+
 		paramsStr = [str(self.postScriptLocation)]
 		for param in self.postScriptParams:
 			paramsStr.append(str(param))

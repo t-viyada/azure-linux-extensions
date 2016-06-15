@@ -21,6 +21,7 @@ import threading
 	errorcode policy
 	errorcode = 0, means success, script runs without error, warnings maybe possible
 	errorcode = 5, means timeout
+	errorcode = 10, config file not found
 	errorcode = process return code, means bash script encountered some other error, like 127 for script not found
 
 """
@@ -38,6 +39,7 @@ class ControllerResult(object):
 	def __init__(self):
 		self.errors = []
 		self.continueBackup = True
+		self.errorCode = 0
 		self.fileCode = []
 		self.filePath = []
 
@@ -52,6 +54,7 @@ class Controller(object):
 	""" description of class """
 	def __init__(self, logger):
 		self.logger = logger
+		self.modulesLoaded = False
 		self.timeout = 10
 		self.plugins = []
 		self.pluginName = []
@@ -68,20 +71,28 @@ class Controller(object):
 
 		"""
 		configData = None
-		with open('config.json', 'r') as configFile:
-			configData = json.load(configFile)
+		try:
+			with open('config.json', 'r') as configFile:
+				configData = json.load(configFile)
+		except IOError:
+			self.logger.log('Error in opening controller config file.',True,'Error')
+			return
+		except ValueError as err:
+			self.logger.log('Error in decoding controller config file. '+str(err),True,'Error')
+			return
 		curr = 0
 		self.timeout = configData['timeout']
 		for pluginData in configData['plugins']:
 			sys.path.append(pluginData['baseFolder'])
 			plugin = __import__(pluginData['pluginName'])
-			self.plugins.append(plugin.ScriptPlugin(logger=self.logger))
+			self.plugins.append(plugin.ScriptPlugin(logger=self.logger,name=pluginData['pluginName']))
 			self.noOfPlugins = self.noOfPlugins + 1
 			self.pluginName.append(pluginData['pluginName'])
 			self.preScriptCompleted.append(False)
 			self.preScriptResult.append(None)
 			self.postScriptCompleted.append(False)
 			self.postScriptResult.append(None)
+		self.modulesLoaded = True
 
 	def add_plugin(self, pluginName, baseFolder):
 		"""
@@ -90,8 +101,16 @@ class Controller(object):
 
 		"""
 		configData = None
-		with open('config.json', 'r') as configFile:
-			configData = json.load(configFile)
+		try:
+			with open('config.json', 'r') as configFile:
+				configData = json.load(configFile)
+		except IOError:
+			self.logger.log('Error in opening controller config file.',True,'Error')
+			return
+		except ValueError as err:
+			self.logger.log('Error in decoding controller config file. '+str(err),True,'Error')
+			return
+		curr = 0
 		values = {'pluginName': pluginName, 'baseFolder': baseFolder}
 		configData['plugins'].append(values)
 		with open('config.json', 'w+') as configFile:
@@ -105,6 +124,11 @@ class Controller(object):
 		"""
 		self.logger.log('Loading script modules now...',True,'Info')
 		self.load_modules()
+		result = ControllerResult()
+		if not self.modulesLoaded:
+			result.errorCode = 10
+			return result
+
 		self.logger.log('Modules loaded successfully...',True,'Info')
 		self.logger.log('Starting prescript for all modules.',True,'Info')
 		curr = 0
@@ -122,7 +146,7 @@ class Controller(object):
 			if flag:
 				break
 
-		result = ControllerResult()
+
 		continueBackup = True
 		for j in range(0,self.noOfPlugins):
 			ecode = 5
@@ -140,6 +164,12 @@ class Controller(object):
 			Runs post_script() for all plugins and maintains a timer
 
 		"""
+		result = ControllerResult()
+		if not self.modulesLoaded:
+			self.logger.log('Controller config file error.', True, 'Info')
+			result.errorCode = 10
+			return result
+
 		self.logger.log('Starting postscript for all modules.',True,'Info')
 		curr = 0
 		for plugin in self.plugins:
@@ -156,8 +186,7 @@ class Controller(object):
 			if flag:
 				break
 
-		result = ControllerResult()
-		result.continueBackup = True
+
 		for j in range(0,self.noOfPlugins):
 			ecode = 5
 			if self.postScriptCompleted[j]:
