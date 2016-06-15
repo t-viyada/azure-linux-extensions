@@ -4,6 +4,8 @@
 	"continueBackupOnFailure" : true,
 	"preScriptLocation" : "",
 	"postScriptLocation" : "",
+	"preScriptNoOfRetries" : 0,
+	"postScriptNoOfRetries" : 0,
 	"preScriptParams" : [
 	],
 	"postScriptParams" : [

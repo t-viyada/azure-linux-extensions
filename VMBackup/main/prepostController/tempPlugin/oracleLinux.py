@@ -14,6 +14,8 @@ import time
 
 		"preScriptLocation" : "/abc/xyz.sh"
 		"postScriptLocation" : "/abc/def.sh"
+		"preScriptNoOfRetries" : 3,
+		"postScriptNoOfRetries" : 2,
 		"preScriptParams" : [
 			... all params to be passed to prescript ...
 		],
@@ -34,6 +36,8 @@ class ScriptPluginResult(object):
 	def __init__(self):
 		self.errorCode = None
 		self.continueBackup = True
+		self.noOfRetries = 0
+		self.requiredNoOfRetries = 0
 		self.fileCode = []
 		self.filePath = []
 
@@ -52,8 +56,8 @@ class ScriptPlugin(object):
 		self.postScriptParams = []
 		self.preScriptLocation = None
 		self.postScriptLocation = None
-		self.preScriptTimeoutHandlerLocation = None
-		self.postScriptTimeoutHandlerLocation = None
+		self.preScriptNoOfRetries = 0
+		self.postScriptNoOfRetries = 0
 		self.get_config()
 
 	def get_config(self):
@@ -68,6 +72,8 @@ class ScriptPlugin(object):
 		self.preScriptParams = configData['preScriptParams']
 		self.postScriptParams = configData['postScriptParams']
 		self.continueBackupOnFailure = configData['continueBackupOnFailure']
+		self.preScriptNoOfRetries = configData['preScriptNoOfRetries']
+		self.postScriptNoOfRetries = configData['postScriptNoOfRetries']
 
 	def pre_script(self, pluginIndex, preScriptCompleted, preScriptResult):
 		"""
@@ -80,26 +86,44 @@ class ScriptPlugin(object):
 		paramsStr = [str(self.preScriptLocation)]
 		for param in self.preScriptParams:
 			paramsStr.append(str(param))
+
+		self.logger.log('Running prescript for '+self.pluginName+' module...',True,'Info')
 		process = subprocess.Popen(paramsStr, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 		flag = True
 		curr = 0
-		while process.poll() is None:
-			if curr >= self.timeout:
-				flag = False
+		cnt = 0
+		while True:
+			while process.poll() is None:
+				if curr >= self.timeout:
+					self.logger.log('Prescript for '+self.pluginName+' timed out.',True,'Error')
+					flag = False
+					break
+				curr = curr + 1
+				time.sleep(60)
+			if process.returncode is 0:
 				break
-			curr = curr + 1
-			time.sleep(60)
+			if not flag:
+				break
+			if cnt >= self.preScriptNoOfRetries:
+				break
+			self.logger.log('Prescript for '+self.pluginName+' failed. Retrying...',True,'Info')
+			cnt = cnt + 1
 
 		result = ScriptPluginResult()
+		result.noOfRetries = cnt
+		result.requiredNoOfRetries = self.preScriptNoOfRetries
 		if flag:
 			result.errorCode = process.returncode
+			if result.errorCode!=0:
+				self.logger.log('Prescript for '+self.pluginName+' failed with error code: '+str(result.errorCode)+' .',True,'Error')
+			else:
+				self.logger.log('Prescript for '+self.pluginName+' successfully executed.',True,'Info')
 		else:
 			result.errorCode = 5
 			result.continueBackup = self.continueBackupOnFailure
 		preScriptCompleted[pluginIndex] = True
 		preScriptResult[pluginIndex] = result
-
 
 	def post_script(self, pluginIndex, postScriptCompleted, postScriptResult):
 		"""
@@ -115,22 +139,39 @@ class ScriptPlugin(object):
 		for param in self.postScriptParams:
 			paramsStr.append(str(param))
 
+		self.logger.log('Running postscript for '+self.pluginName+' module...',True,'Info')
 		process = subprocess.Popen(paramsStr, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 		flag = True
 		curr = 0
-		while process.poll() is None:
-			if curr >= self.timeout:
-				flag = False
+		cnt = 0
+		while True:
+			while process.poll() is None:
+				if curr >= self.timeout:
+					self.logger.log('Postscript for '+self.pluginName+' timed out.',True,'Error')
+					flag = False
+					break
+				curr = curr + 1
+				time.sleep(60)
+			if process.returncode is 0:
 				break
-			curr = curr + 1
-			time.sleep(60)
+			if not flag:
+				break
+			if cnt >= self.postScriptNoOfRetries:
+				break
+			self.logger.log('Postscript for '+self.pluginName+' failed. Retrying...',True,'Info')
+			cnt = cnt + 1
 
 		result = ScriptPluginResult()
+		result.noOfRetries = cnt
+		result.requiredNoOfRetries = self.postScriptNoOfRetries
 		if flag:
 			result.errorCode = process.returncode
+			if result.errorCode!=0:
+				self.logger.log('Postscript for '+self.pluginName+' failed with error code: '+str(result.errorCode)+' .',True,'Error')
+			else:
+				self.logger.log('Postscript for '+self.pluginName+' successfully executed.',True,'Info')
 		else:
 			result.errorCode = 5
-			result.continueBackup = self.continueBackupOnFailure
 		postScriptCompleted[pluginIndex] = True
 		postScriptResult[pluginIndex] = result

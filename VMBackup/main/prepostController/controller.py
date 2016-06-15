@@ -18,7 +18,6 @@ import threading
 		]
 	}
 
-
 	errorcode policy
 	errorcode = 0, means success, script runs without error, warnings maybe possible
 	errorcode = 5, means timeout
@@ -104,7 +103,10 @@ class Controller(object):
 			Runs pre_script() for all plugins and maintains a timer
 
 		"""
+		self.logger.log('Loading script modules now...',True,'Info')
 		self.load_modules()
+		self.logger.log('Modules loaded successfully...',True,'Info')
+		self.logger.log('Starting prescript for all modules.',True,'Info')
 		curr = 0
 		for plugin in self.plugins:
 			t1 = threading.Thread(target=plugin.pre_script,args=(curr,self.preScriptCompleted,self.preScriptResult,))
@@ -130,6 +132,7 @@ class Controller(object):
 			presult = ControllerError(errorCode=ecode,pluginName=self.pluginName[j])
 			result.errors.append(presult)
 		result.continueBackup = continueBackup
+		self.logger.log('Finished prescript execution from controller side. Continue Backup: '+str(continueBackup),True,'Info')
 		return result
 
 	def post_script(self):
@@ -137,6 +140,7 @@ class Controller(object):
 			Runs post_script() for all plugins and maintains a timer
 
 		"""
+		self.logger.log('Starting postscript for all modules.',True,'Info')
 		curr = 0
 		for plugin in self.plugins:
 			t1 = threading.Thread(target=plugin.post_script,args=(curr,self.postScriptCompleted,self.postScriptResult,))
@@ -160,6 +164,7 @@ class Controller(object):
 				ecode = self.postScriptCompleted[j].errorCode
 			presult = ControllerError(errorCode=ecode,pluginName=self.pluginName[j])
 			result.errors.append(presult)
+		self.logger.log('Finished prescript execution from controller side.',True,'Info')
 		return result
 
 
