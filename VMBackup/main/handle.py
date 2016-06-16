@@ -51,6 +51,7 @@ from backuplogger import Backuplogger
 from blobwriter import BlobWriter
 from taskidentity import TaskIdentity
 from MachineIdentity import MachineIdentity
+from controller import Controller
 
 #Main function is the only entrence to this extension handler
 

@@ -1,6 +1,5 @@
 import json
 import subprocess
-import os
 import time
 
 """
@@ -47,9 +46,10 @@ class ScriptPluginResult(object):
 
 class ScriptPlugin(object):
 	""" description of class """
-	def __init__(self, logger, name):
+	def __init__(self, logger, name, configPath):
 		self.logger = logger
 		self.timeout = 10
+		self.configLocation = configPath
 		self.pluginName = name
 		self.continueBackupOnFailure = True
 		self.preScriptParams = []
@@ -67,7 +67,7 @@ class ScriptPlugin(object):
 
 		"""
 		try:
-			with open('config.json', 'r') as configFile:
+			with open(self.configLocation, 'r') as configFile:
 				configData = json.load(configFile)
 		except IOError:
 			self.logger.log('Error in opening '+self.pluginName+' config file.',True,'Error')

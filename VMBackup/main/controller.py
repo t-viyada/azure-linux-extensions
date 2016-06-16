@@ -1,7 +1,7 @@
-import json
 import time
 import sys
 import threading
+import ConfigParser
 
 """
 	config.json --------structure---------
@@ -38,6 +38,7 @@ class ControllerError(object):
 class ControllerResult(object):
 	def __init__(self):
 		self.errors = []
+		self.anyScriptFailed = False
 		self.continueBackup = True
 		self.errorCode = 0
 		self.fileCode = []
@@ -55,6 +56,7 @@ class Controller(object):
 	def __init__(self, logger):
 		self.logger = logger
 		self.modulesLoaded = False
+		self.configLocation = ''
 		self.timeout = 10
 		self.plugins = []
 		self.pluginName = []
@@ -70,52 +72,28 @@ class Controller(object):
 			and initializes basic class variables associated with each plugin
 
 		"""
-		configData = None
 		try:
-			with open('config.json', 'r') as configFile:
-				configData = json.load(configFile)
-		except IOError:
-			self.logger.log('Error in opening controller config file.',True,'Error')
+			config = ConfigParser.ConfigParser()
+			config.read(self.configLocation)
+		except Exception as err:
+			self.logger.log('Error in controller config file. '+str(err),True,'Error')
 			return
-		except ValueError as err:
-			self.logger.log('Error in decoding controller config file. '+str(err),True,'Error')
-			return
-		curr = 0
-		self.timeout = configData['timeout']
-		for pluginData in configData['plugins']:
-			sys.path.append(pluginData['baseFolder'])
-			plugin = __import__(pluginData['pluginName'])
-			self.plugins.append(plugin.ScriptPlugin(logger=self.logger,name=pluginData['pluginName']))
+		self.timeout = config.get('pre_post','timeout')
+		len = config.get('pre_post','numberOfPlugins')
+		while self.noOfPlugins < len:
+			pname = config.get('pre_post','pluginName'+str(self.noOfPlugins))
+			ppath = config.get('pre_post','pluginPath'+str(self.noOfPlugins))
+			pcpath = config.get('pre_post','pluginConfigPath'+str(self.noOfPlugins))
+			sys.path.append(ppath)
+			plugin = __import__(pname)
+			self.plugins.append(plugin.ScriptPlugin(logger=self.logger,name=pname,configPath=pcpath))
 			self.noOfPlugins = self.noOfPlugins + 1
-			self.pluginName.append(pluginData['pluginName'])
+			self.pluginName.append(pname)
 			self.preScriptCompleted.append(False)
 			self.preScriptResult.append(None)
 			self.postScriptCompleted.append(False)
 			self.postScriptResult.append(None)
 		self.modulesLoaded = True
-
-	def add_plugin(self, pluginName, baseFolder):
-		"""
-			Adds a new plugin module by updating config.json file
-			pluginName and baseFolder are information about the new plugin
-
-		"""
-		configData = None
-		try:
-			with open('config.json', 'r') as configFile:
-				configData = json.load(configFile)
-		except IOError:
-			self.logger.log('Error in opening controller config file.',True,'Error')
-			return
-		except ValueError as err:
-			self.logger.log('Error in decoding controller config file. '+str(err),True,'Error')
-			return
-		curr = 0
-		values = {'pluginName': pluginName, 'baseFolder': baseFolder}
-		configData['plugins'].append(values)
-		with open('config.json', 'w+') as configFile:
-			configFile.write(json.dumps(configData))
-		self.noOfPlugins = self.noOfPlugins + 1
 
 	def pre_script(self):
 		"""
@@ -153,6 +131,8 @@ class Controller(object):
 			continueBackup = continueBackup&self.postScriptResult[j].continueBackup
 			if self.preScriptCompleted[j]:
 				ecode = self.preScriptResult[j].errorCode
+			if ecode != 0:
+				result.anyScriptFailed = True
 			presult = ControllerError(errorCode=ecode,pluginName=self.pluginName[j])
 			result.errors.append(presult)
 		result.continueBackup = continueBackup
