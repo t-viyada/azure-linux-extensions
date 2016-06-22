@@ -4,19 +4,14 @@ import threading
 import ConfigParser
 
 """
-	config.json --------structure---------
-	{
-		"timeout" : (in minutes),
+	[pre_post]
+	"timeout" : (in minutes),
 
-		.... other params ...
+	.... other params ...
 
-		"plugins" : [
-			{
-				"pluginName" : "oracle_plugin",      the python plugin file will have same name
-				"baseFolder" : "/abc/xyz/"
-			},
-		]
-	}
+	"pluginName0" : "oracle_plugin",      the python plugin file will have same name
+	"baseFolder" : "/abc/xyz/"
+
 
 	errorcode policy
 	errorcode = 0, means success, script runs without error, warnings maybe possible
@@ -78,8 +73,8 @@ class Controller(object):
 		except Exception as err:
 			self.logger.log('Error in controller config file. '+str(err),True,'Error')
 			return
-		self.timeout = config.get('pre_post','timeout')
-		len = config.get('pre_post','numberOfPlugins')
+		self.timeout = int(config.get('pre_post','timeout'))
+		len = int(config.get('pre_post','numberOfPlugins'))
 		while self.noOfPlugins < len:
 			pname = config.get('pre_post','pluginName'+str(self.noOfPlugins))
 			ppath = config.get('pre_post','pluginPath'+str(self.noOfPlugins))
@@ -116,8 +111,8 @@ class Controller(object):
 			curr = curr + 1
 
 		flag = True
-		for i in range(0,self.timeout):
-			time.sleep(60)
+		for i in range(0,6*(self.timeout)):
+			time.sleep(10)
 			flag = True
 			for j in range(0,self.noOfPlugins):
 				flag = flag&self.preScriptCompleted[j]
@@ -128,7 +123,7 @@ class Controller(object):
 		continueBackup = True
 		for j in range(0,self.noOfPlugins):
 			ecode = 5
-			continueBackup = continueBackup&self.postScriptResult[j].continueBackup
+			continueBackup = continueBackup&self.preScriptResult[j].continueBackup
 			if self.preScriptCompleted[j]:
 				ecode = self.preScriptResult[j].errorCode
 			if ecode != 0:
@@ -158,14 +153,13 @@ class Controller(object):
 			curr = curr + 1
 
 		flag = True
-		for i in range(0,self.timeout):
-			time.sleep(60)
+		for i in range(0,6*(self.timeout)):
+			time.sleep(10)
 			flag = True
 			for j in range(0,self.noOfPlugins):
 				flag = flag&self.postScriptCompleted[j]
 			if flag:
 				break
-
 
 		for j in range(0,self.noOfPlugins):
 			ecode = 5

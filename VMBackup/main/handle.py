@@ -335,7 +335,11 @@ def update():
 
 def enable():
     hutil.do_parse_context('Enable')
-    start_daemon();
+    controllerObj = Controller(logger=backup_logger)
+    result = controllerObj.pre_script()
+    start_daemon()
+    result2 = controllerObj.post_script()
+
 
 def start_daemon():
     args = [os.path.join(os.getcwd(), __file__), "-daemon"]

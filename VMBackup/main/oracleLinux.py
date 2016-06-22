@@ -27,7 +27,9 @@ import time
 	errorcode policy
 	errorcode = 0, means success, script runs without error, warnings maybe possible
 	errorcode = 5, means timeout
+	errorcode = 10, config file not found
 	errorcode = process return code, means bash script encountered some other error, like 127 for script not found
+
 
 """
 
@@ -77,6 +79,8 @@ class ScriptPlugin(object):
 			return
 		self.timeout = configData['timeout']
 		self.pluginName = configData['pluginName']
+		self.preScriptLocation = configData['preScriptLocation']
+		self.postScriptLocation = configData['postScriptLocation']
 		self.preScriptParams = configData['preScriptParams']
 		self.postScriptParams = configData['postScriptParams']
 		self.continueBackupOnFailure = configData['continueBackupOnFailure']
@@ -101,7 +105,7 @@ class ScriptPlugin(object):
 			self.logger.log('Cant run prescript for '+self.pluginName+' . Config File error.',True,'Error')
 			return
 
-		paramsStr = [str(self.preScriptLocation)]
+		paramsStr = ['sh',str(self.preScriptLocation)]
 		for param in self.preScriptParams:
 			paramsStr.append(str(param))
 
@@ -113,12 +117,12 @@ class ScriptPlugin(object):
 		cnt = 0
 		while True:
 			while process.poll() is None:
-				if curr >= self.timeout:
+				if curr >= (2*self.timeout):
 					self.logger.log('Prescript for '+self.pluginName+' timed out.',True,'Error')
 					flag = False
 					break
 				curr = curr + 1
-				time.sleep(60)
+				time.sleep(30)
 			if process.returncode is 0:
 				break
 			if not flag:
@@ -159,7 +163,7 @@ class ScriptPlugin(object):
 			self.logger.log('Cant run postscript for '+self.pluginName+' . Config File error.',True,'Error')
 			return
 
-		paramsStr = [str(self.postScriptLocation)]
+		paramsStr = ['sh',str(self.postScriptLocation)]
 		for param in self.postScriptParams:
 			paramsStr.append(str(param))
 
@@ -171,12 +175,12 @@ class ScriptPlugin(object):
 		cnt = 0
 		while True:
 			while process.poll() is None:
-				if curr >= self.timeout:
+				if curr >= (2*self.timeout):
 					self.logger.log('Postscript for '+self.pluginName+' timed out.',True,'Error')
 					flag = False
 					break
 				curr = curr + 1
-				time.sleep(60)
+				time.sleep(30)
 			if process.returncode is 0:
 				break
 			if not flag:
