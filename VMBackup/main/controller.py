@@ -10,7 +10,8 @@ import ConfigParser
 	.... other params ...
 
 	"pluginName0" : "oracle_plugin",      the python plugin file will have same name
-	"baseFolder" : "/abc/xyz/"
+	"pluginPath0" : "/abc/xyz/"
+	"pluginConfigPath0" : "sdf/sdf/abcd.json"
 
 
 	errorcode policy

@@ -259,6 +259,8 @@ def daemon():
                 """
                 make sure the log is not doing when the file system is freezed.
                 """
+                controllerObj = Controller(logger=backup_logger)
+                controllerObj.pre_script()
                 freeze_watcher_tread = Thread(target = freeze_watcher)
                 freeze_watcher_tread.start()
                 backup_logger.log('doing freeze now...', True)
@@ -277,6 +279,7 @@ def daemon():
                             backup_logger.log('unfreeze result is None')
                             break;
                 backup_logger.log('unfreeze ends...')
+                controllerObj.post_script()
                 
         else:
             run_status = 'error'
