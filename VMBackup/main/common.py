@@ -47,6 +47,7 @@ class CommonVariables:
     error_same_taskid = 14
     error_http_failure = 15
     error_upload_status_blob = 16
+    error_script_fail = 17
     error = 2
 
 class DeviceItem(object):

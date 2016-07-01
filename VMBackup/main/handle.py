@@ -51,7 +51,7 @@ from backuplogger import Backuplogger
 from blobwriter import BlobWriter
 from taskidentity import TaskIdentity
 from MachineIdentity import MachineIdentity
-from controller import Controller
+from PluginHost import PluginHost
 
 #Main function is the only entrence to this extension handler
 
@@ -256,30 +256,43 @@ def daemon():
                 backup_logger.log(error_msg, False, 'Error')
             else:
                 backup_logger.log('commandToExecute is ' + commandToExecute, True)
-                """
-                make sure the log is not doing when the file system is freezed.
-                """
-                controllerObj = Controller(logger=backup_logger)
-                controllerObj.pre_script()
-                freeze_watcher_tread = Thread(target = freeze_watcher)
-                freeze_watcher_tread.start()
-                backup_logger.log('doing freeze now...', True)
-                snapshot_thread = Thread(target = snapshot)
-                snapshot_thread.start()
-                freeze_watcher_tread.join()
-                
-                for i in range(0,3):
-                    unfreeze_result = freezer.unfreezeall()
-                    backup_logger.log('unfreeze result ' + str(unfreeze_result), True)
-                    if(unfreeze_result is not None):
-                        if len(unfreeze_result.errors) > 0:
-                            error_msg += ('unfreeze with error: ' + str(unfreeze_result.errors))
-                            backup_logger.log(error_msg, False, 'Warning')
-                        else:
-                            backup_logger.log('unfreeze result is None')
-                            break;
-                backup_logger.log('unfreeze ends...')
-                controllerObj.post_script()
+                PluginHostObj = PluginHost(logger=backup_logger)
+                preResult = PluginHostObj.pre_script()
+                dobackup = preResult.continueBackup
+                if preResult.continueBackup:
+                    """
+                    make sure the log is not doing when the file system is freezed.
+                    """
+                    freeze_watcher_tread = Thread(target = freeze_watcher)
+                    freeze_watcher_tread.start()
+                    backup_logger.log('doing freeze now...', True)
+                    snapshot_thread = Thread(target = snapshot)
+                    snapshot_thread.start()
+                    freeze_watcher_tread.join()
+
+                    for i in range(0,3):
+                        unfreeze_result = freezer.unfreezeall()
+                        backup_logger.log('unfreeze result ' + str(unfreeze_result), True)
+                        if(unfreeze_result is not None):
+                            if len(unfreeze_result.errors) > 0:
+                                error_msg += ('unfreeze with error: ' + str(unfreeze_result.errors))
+                                backup_logger.log(error_msg, False, 'Warning')
+                            else:
+                                backup_logger.log('unfreeze result is None')
+                                break;
+                    backup_logger.log('unfreeze ends...')
+
+                postResult = PluginHostObj.post_script()
+                if not postResult.continueBackup:
+                    dobackup = False
+                if not dobackup:
+                    run_status = 'error'
+                    run_result = CommonVariables.error
+                    error_msg = 'Scripts failed and backup also failed'
+                    backup_logger.log(error_msg,False,'Error')
+                elif preResult.anyScriptFailed or postResult.anyScriptFailed:
+                    error_msg = 'Scripts failed but continue backup'
+                    backup_logger.log(error_msg,False,'Error')
                 
         else:
             run_status = 'error'
@@ -338,10 +351,7 @@ def update():
 
 def enable():
     hutil.do_parse_context('Enable')
-    controllerObj = Controller(logger=backup_logger)
-    result = controllerObj.pre_script()
     start_daemon()
-    result2 = controllerObj.post_script()
 
 
 def start_daemon():
