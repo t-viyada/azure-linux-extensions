@@ -164,12 +164,17 @@ class PluginHost(object):
             if flag:
                 break
 
+        continueBackup = True
         for j in range(0,self.noOfPlugins):
             ecode = 5
+            continueBackup = continueBackup&self.postScriptResult[j].continueBackup
             if self.postScriptCompleted[j]:
                 ecode = self.postScriptCompleted[j].errorCode
+            if ecode!=0:
+                result.anyScriptFailed = True
             presult = PluginHostError(errorCode=ecode,pluginName=self.pluginName[j])
             result.errors.append(presult)
+        result.continueBackup = continueBackup
         self.logger.log('Finished prescript execution from PluginHost side.',True,'Info')
         return result
 

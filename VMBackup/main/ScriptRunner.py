@@ -118,12 +118,12 @@ class ScriptRunner(object):
         cnt = 0
         while True:
             while process.poll() is None:
-                if curr >= (2*self.timeout):
+                if curr >= (6*self.timeout):
                     self.logger.log('Prescript for '+self.pluginName+' timed out.',True,'Error')
                     flag = False
                     break
                 curr = curr + 1
-                time.sleep(30)
+                time.sleep(10)
             if process.returncode is 0:
                 break
             if not flag:
@@ -137,7 +137,8 @@ class ScriptRunner(object):
         result.noOfRetries = cnt
         if flag:
             result.errorCode = process.returncode
-            if result.errorCode!=0:
+            if result.errorCode!=0 and result.errorCode!=2:
+                result.continueBackup = self.continueBackupOnFailure
                 self.logger.log('Prescript for '+self.pluginName+' failed with error code: '+str(result.errorCode)+' .',True,'Error')
             else:
                 self.logger.log('Prescript for '+self.pluginName+' successfully executed.',True,'Info')
@@ -196,11 +197,13 @@ class ScriptRunner(object):
         result.requiredNoOfRetries = self.postScriptNoOfRetries
         if flag:
             result.errorCode = process.returncode
-            if result.errorCode!=0:
+            if result.errorCode!=0 and result.errorCode!=2:
+                result.continueBackup = self.continueBackupOnFailure
                 self.logger.log('Postscript for '+self.pluginName+' failed with error code: '+str(result.errorCode)+' .',True,'Error')
             else:
                 self.logger.log('Postscript for '+self.pluginName+' successfully executed.',True,'Info')
         else:
             result.errorCode = 5
+            result.continueBackup = self.continueBackupOnFailure
         postScriptCompleted[pluginIndex] = True
         postScriptResult[pluginIndex] = result
