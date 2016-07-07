@@ -175,7 +175,7 @@ class PluginHost(object):
             presult = PluginHostError(errorCode=ecode,pluginName=self.pluginName[j])
             result.errors.append(presult)
         result.continueBackup = continueBackup
-        self.logger.log('Finished prescript execution from PluginHost side.',True,'Info')
+        self.logger.log('Finished postscript execution from PluginHost side.',True,'Info')
         return result
 
 
